@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/tsrx" },
+    { "path": "./packages/vite-plugin-tsrx" }
+  ]
+}

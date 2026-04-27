@@ -1,0 +1,31 @@
+{
+  "name": "@marko/tsrx",
+  "version": "0.0.1",
+  "description": "Marko Tags API compiler built on @tsrx/core",
+  "keywords": [
+    "marko",
+    "tsrx"
+  ],
+  "license": "MIT",
+  "author": "LuLaValva",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@tsrx/core": "^0.0.14"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

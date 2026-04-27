@@ -1,0 +1,35 @@
+{
+  "name": "@marko/vite-plugin-tsrx",
+  "version": "0.0.1",
+  "description": "Vite plugin for @marko/tsrx (.tsrx modules) targeting Marko 6",
+  "keywords": [
+    "marko",
+    "tsrx",
+    "vite"
+  ],
+  "license": "MIT",
+  "author": "LuLaValva",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@marko/tsrx": "^0.0.1"
+  },
+  "peerDependencies": {
+    "vite": ">=5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
