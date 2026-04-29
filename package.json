@@ -14,9 +14,14 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "publish": "npm run build && npm publish --workspace packages/tsrx && npm publish --workspace packages/vite-plugin-tsrx"
+    "change": "changeset",
+    "version": "changeset version",
+    "publish": "npm run build && changeset publish",
+    "@ci:version": "changeset version && npm i --package-lock-only",
+    "@ci:release": "npm run build && changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^25.6.0",
     "playwright-core": "^1.59.1",
     "prettier": "^3.8.3",
