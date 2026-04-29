@@ -13,7 +13,8 @@
     "build": "tsc -b tsconfig.build.json",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "publish": "npm run build && npm publish --workspace packages/tsrx && npm publish --workspace packages/vite-plugin-tsrx"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

@@ -16,8 +16,21 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/.tsbuildinfo"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marko-js/tsrx.git",
+    "directory": "packages/tsrx"
+  },
+  "homepage": "https://github.com/marko-js/tsrx/tree/main/packages/tsrx#readme",
+  "bugs": {
+    "url": "https://github.com/marko-js/tsrx/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsc --build",
     "prepublishOnly": "npm run build"

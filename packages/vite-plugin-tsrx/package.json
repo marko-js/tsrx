@@ -17,15 +17,34 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/.tsbuildinfo"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marko-js/tsrx.git",
+    "directory": "packages/vite-plugin-tsrx"
+  },
+  "homepage": "https://github.com/marko-js/tsrx/tree/main/packages/vite-plugin-tsrx#readme",
+  "bugs": {
+    "url": "https://github.com/marko-js/tsrx/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "build": "tsc --build",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
+    "@marko/compiler": ">=5.0.0",
     "@marko/tsrx": "^0.0.1",
     "vite": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marko/compiler": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"
