@@ -1,0 +1,4 @@
+export type Input = { onClick: () => void };
+
+<const/{ onClick }=input/>
+<button onClick=onClick>click</button><button onClick=(() => { onClick(); })>wrap</button><input onInput=function (e: InputEvent) { console.log(e); }/>

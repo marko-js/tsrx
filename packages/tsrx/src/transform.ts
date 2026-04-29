@@ -1,0 +1,888 @@
+import type { ParseResult } from "@tsrx/core/types";
+import type * as AST from "estree";
+import type {
+  JSXElement,
+  JSXExpressionContainer,
+  JSXFragment,
+  JSXSpreadChild,
+  JSXText,
+} from "estree-jsx";
+import { encode } from "@jridgewell/sourcemap-codec";
+
+export type CompileResult = {
+  ast: ParseResult["ast"];
+  code: string;
+  map: unknown;
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+/** Nodes that carry source positions, used for slicing and source mapping. */
+type Sliceable = { start?: number; end?: number };
+
+type TsrxElement = AST.BaseNode & {
+  type: "Element";
+  id: AST.Identifier | AST.MemberExpression;
+  attributes: AST.TSRXAttribute[];
+  children: AST.Node[];
+  selfClosing?: boolean;
+  css?: string;
+};
+
+type Component = AST.BaseNode & {
+  type: "Component";
+  id: AST.Identifier | null;
+  params: AST.Pattern[];
+  body: AST.Node[];
+  default: boolean;
+};
+
+type SourceMap = {
+  version: 3;
+  sources: string[];
+  sourcesContent: string[];
+  names: string[];
+  mappings: string;
+};
+
+// ─── Writer ───────────────────────────────────────────────────────────────────
+//
+// The Marko target emits a string in a different language (not a new AST), so
+// we can't reuse esrap's print() like the JSX targets do. Writer builds the
+// output while tracking which segments correspond to positions in the source.
+//
+//   write(text)             — emit literal text with no source mapping
+//   writeNode(text, offset) — emit text mapped back to `offset` in the source
+//   writeSrc(node)          — slice source[node.start..node.end] + map it
+
+// Each segment: [generatedCol, sourceIndex=0, sourceLine, sourceCol]
+type Segment = [number, 0, number, number];
+
+class Writer {
+  #chunks: string[] = [];
+  #genLine = 0;
+  #genCol = 0;
+  #lines: Segment[][] = [[]];
+  #lineStarts: number[];
+  #source: string;
+
+  constructor(source: string) {
+    this.#source = source;
+    const starts = [0];
+    for (let i = 0; i < source.length; i++) {
+      if (source[i] === "\n") starts.push(i + 1);
+    }
+    this.#lineStarts = starts;
+  }
+
+  write(text: string): this {
+    if (!text) return this;
+    this.#chunks.push(text);
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === "\n") {
+        this.#genLine++;
+        this.#genCol = 0;
+        this.#lines.push([]);
+      } else {
+        this.#genCol++;
+      }
+    }
+    return this;
+  }
+
+  writeNode(text: string, sourceOffset: number): this {
+    if (!text) return this;
+    const [srcLine, srcCol] = this.#offsetToLineCol(sourceOffset);
+    this.#lines[this.#genLine]!.push([this.#genCol, 0, srcLine, srcCol]);
+    return this.write(text);
+  }
+
+  writeSrc(node: Sliceable): this {
+    if (node.start == null || node.end == null) return this;
+    return this.writeNode(this.#source.slice(node.start, node.end), node.start);
+  }
+
+  nl(): this {
+    return this.write("\n");
+  }
+
+  toString(): string {
+    return this.#chunks.join("");
+  }
+
+  generateMap(filename: string | undefined, source: string): SourceMap {
+    return {
+      version: 3,
+      sources: [filename ?? ""],
+      sourcesContent: [source],
+      names: [],
+      mappings: encode(this.#lines),
+    };
+  }
+
+  #offsetToLineCol(offset: number): [number, number] {
+    let lo = 0;
+    let hi = this.#lineStarts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (this.#lineStarts[mid]! <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return [lo, offset - this.#lineStarts[lo]!];
+  }
+}
+
+// ─── Transformer ─────────────────────────────────────────────────────────────
+
+class Transformer {
+  #source: string;
+  #w: Writer;
+  #defineNames: ReadonlySet<string> = new Set();
+
+  constructor(
+    ast: ParseResult["ast"] | null,
+    source: string,
+    private filename: string | undefined,
+  ) {
+    this.#source = source;
+    this.#w = new Writer(source);
+    if (ast !== null) this.#transform(ast as AST.Program);
+  }
+
+  result(): CompileResult {
+    const code = this.#w.toString();
+    const map = this.#w.generateMap(this.filename, this.#source);
+    return { ast: undefined as never, code, map };
+  }
+
+  // ── Top-level program walk ─────────────────────────────────────────────────
+
+  #transform(program: AST.Program): void {
+    for (const node of program.body) {
+      if ((node as AST.Node & { type: string }).type === "ServerBlock") {
+        throw new Error(
+          "`#server { ... }` blocks are not supported by @marko/tsrx.",
+        );
+      }
+    }
+
+    const defines: Array<{ name: string; node: AST.Node }> = [];
+    let defaultComp: Component | undefined;
+
+    for (const node of program.body as AST.Node[]) {
+      switch (node.type) {
+        case "Component": {
+          const comp = node as unknown as Component;
+          if (!comp.id?.name)
+            throw new Error(
+              "Anonymous components are not supported by @marko/tsrx.",
+            );
+          for (const p of comp.params) this.#throwIfLazyPattern(p);
+          defines.push({ name: comp.id.name, node });
+          break;
+        }
+
+        case "ExportDefaultDeclaration": {
+          const decl = (node as AST.ExportDefaultDeclaration).declaration;
+          if ((decl as AST.Node).type !== "Component") {
+            throw new Error(
+              "`export default` must be a component declaration in @marko/tsrx.",
+            );
+          }
+          const comp = decl as unknown as Component;
+          for (const p of comp.params) this.#throwIfLazyPattern(p);
+          defaultComp = comp;
+          break;
+        }
+
+        case "ExportNamedDeclaration": {
+          const decl = (node as AST.ExportNamedDeclaration).declaration as
+            | AST.Node
+            | null
+            | undefined;
+          if (decl?.type === "Component") {
+            const comp = decl as unknown as Component;
+            if (!comp.id?.name)
+              throw new Error(
+                "Anonymous components are not supported by @marko/tsrx.",
+              );
+            for (const p of comp.params) this.#throwIfLazyPattern(p);
+            defines.push({ name: comp.id.name, node });
+          } else {
+            defines.push({ name: "", node });
+          }
+          break;
+        }
+
+        default:
+          defines.push({ name: "", node });
+          break;
+      }
+    }
+
+    if (!defaultComp) {
+      throw new Error(
+        "A `.tsrx` file must have an `export default component` declaration.",
+      );
+    }
+
+    for (const { name, node } of defines) {
+      if (name) {
+        const comp = (
+          node.type === "ExportNamedDeclaration"
+            ? (node as AST.ExportNamedDeclaration).declaration
+            : node
+        ) as unknown as Component;
+        this.#w.write(`<define/${name}>`);
+        this.#compileComponent(comp);
+        this.#w.write("</define>\n");
+      } else {
+        this.#w.write("static ");
+        this.#w.writeSrc(node as Sliceable);
+        this.#w.nl();
+      }
+    }
+
+    if (defines.length > 0) this.#w.nl();
+    this.#compileComponent(defaultComp);
+  }
+
+  // ── Component ──────────────────────────────────────────────────────────────
+
+  #compileComponent(comp: Component): void {
+    // Pre-pass: collect defineNames before any emit so the field is stable.
+    this.#defineNames = this.#collectDefineNames(comp.body);
+    this.#emitInputParam(comp.params);
+    this.#stmts(comp.body);
+  }
+
+  #collectDefineNames(body: AST.Node[]): Set<string> {
+    const names = new Set<string>();
+    for (const node of body) {
+      if (node.type !== "VariableDeclaration") continue;
+      const vd = node as AST.VariableDeclaration;
+      if (vd.kind !== "const") continue;
+      for (const d of vd.declarations) {
+        if (
+          d.id.type === "Identifier" &&
+          d.init != null &&
+          (d.init as AST.Node).type === "Tsx"
+        ) {
+          names.add((d.id as AST.Identifier).name);
+        }
+      }
+    }
+    return names;
+  }
+
+  /**
+   * Emit the component's input parameter as:
+   *   1. `export type Input = …;\n\n`  (if a type annotation is present)
+   *   2. `<const/PATTERN=input/>\n`    (unless the param is literally named `input`)
+   */
+  #emitInputParam(params: AST.Pattern[]): void {
+    const firstParam = params[0];
+    if (!firstParam) return;
+
+    const outerAnno = (
+      firstParam as { typeAnnotation?: Sliceable & { typeAnnotation?: Sliceable } }
+    ).typeAnnotation;
+    const innerTypeNode = outerAnno?.typeAnnotation;
+
+    const patternEnd = outerAnno?.start ?? (firstParam as Sliceable).end;
+    const patternSlice = this.#source
+      .slice((firstParam as Sliceable).start, patternEnd)
+      .trimEnd();
+
+    if (innerTypeNode?.start != null && innerTypeNode.end != null) {
+      this.#w.write("export type Input = ");
+      this.#w.writeSrc(innerTypeNode);
+      this.#w.write(";\n\n");
+    }
+
+    if (patternSlice !== "input") {
+      this.#w.write("<const/");
+      this.#w.writeNode(patternSlice, (firstParam as Sliceable).start ?? 0);
+      this.#w.write("=input/>\n");
+    }
+  }
+
+  // ── Statement emit ─────────────────────────────────────────────────────────
+  //
+  // #stmt()  — statement position: expressions use Marko's `-- expr` syntax
+  // #child() — child position (inside an element): expressions use `${expr}`
+  //
+  // Both dispatch the same node types; only the expression wrapper differs.
+
+  #stmts(nodes: AST.Node[]): void {
+    for (const n of nodes) this.#stmt(n);
+  }
+
+  #stmt(node: AST.Node): void {
+    switch (node.type) {
+      case "Element":
+        this.#element(node as unknown as TsrxElement);
+        return;
+
+      case "TSRXExpression": {
+        const n = node as AST.TSRXExpression;
+        if (
+          n.expression.type === "Identifier" &&
+          this.#defineNames.has((n.expression as AST.Identifier).name)
+        ) {
+          const id = n.expression as AST.Identifier;
+          this.#w.write("<${");
+          this.#w.writeNode(id.name, (id as Sliceable).start ?? 0);
+          this.#w.write("}/>");
+          return;
+        }
+        if (n.expression.type === "Literal") {
+          const safe = this.#safeLiteralText((n.expression as AST.Literal).value);
+          if (safe !== null) {
+            this.#w.write("-- ");
+            this.#w.writeNode(safe, (n.expression as Sliceable).start ?? 0);
+            return;
+          }
+        }
+        this.#w.write("-- ${");
+        this.#w.writeSrc(n.expression as Sliceable);
+        this.#w.write("}");
+        return;
+      }
+
+      case "Html": {
+        const n = node as AST.Html;
+        this.#w.write("-- $!{");
+        this.#w.writeSrc(n.expression as Sliceable);
+        this.#w.write("}");
+        return;
+      }
+
+      case "VariableDeclaration":
+        this.#variableDeclaration(node as AST.VariableDeclaration);
+        return;
+
+      case "IfStatement":
+        this.#emitIf(node as AST.IfStatement);
+        return;
+
+      case "ForOfStatement":
+        this.#emitForOf(node as AST.ForOfStatement);
+        return;
+
+      case "SwitchStatement":
+        this.#emitSwitch(node as AST.SwitchStatement);
+        return;
+
+      case "TryStatement":
+        this.#emitTry(node as AST.TryStatement);
+        return;
+
+      case "BlockStatement":
+        this.#stmts((node as AST.BlockStatement).body);
+        return;
+
+      case "ExpressionStatement": {
+        const ex = (node as AST.ExpressionStatement).expression;
+        if (ex.type === "Literal") return;
+        if (
+          ex.type === "Identifier" &&
+          this.#defineNames.has((ex as AST.Identifier).name)
+        ) {
+          this.#w.write("<${");
+          this.#w.writeSrc(ex as Sliceable);
+          this.#w.write("}/>");
+          return;
+        }
+        this.#w.write("${");
+        this.#w.writeSrc(ex as Sliceable);
+        this.#w.write("}");
+        return;
+      }
+
+      case "EmptyStatement":
+        return;
+
+      default:
+        return;
+    }
+  }
+
+  #children(nodes: AST.Node[]): void {
+    // Probe each child first so we can insert "\n" only between two adjacent
+    // Element nodes (without needing to go back in the Writer).
+    const pending: Array<{ node: AST.Node; emit: () => void }> = [];
+    for (const n of nodes) {
+      const probe = this.#probe((t) => t.#child(n));
+      if (!probe) continue;
+      pending.push({ node: n, emit: () => this.#child(n) });
+    }
+    for (let i = 0; i < pending.length; i++) {
+      const p = pending[i]!;
+      const prev = pending[i - 1];
+      if (prev && p.node.type === "Element" && prev.node.type === "Element") {
+        this.#w.nl();
+      }
+      p.emit();
+    }
+  }
+
+  #child(node: AST.Node): void {
+    switch (node.type) {
+      case "Text": {
+        const n = node as AST.BaseNode & { expression: AST.Expression };
+        const expr = n.expression;
+        if (expr.type === "Literal") {
+          const safe = this.#safeLiteralText((expr as AST.Literal).value);
+          if (safe !== null) {
+            this.#w.writeNode(safe, (expr as Sliceable).start ?? 0);
+            return;
+          }
+        }
+        this.#w.write("${");
+        this.#w.writeSrc(expr as Sliceable);
+        this.#w.write("}");
+        return;
+      }
+
+      case "Html": {
+        const n = node as AST.Html;
+        this.#w.write("$!{");
+        this.#w.writeSrc(n.expression as Sliceable);
+        this.#w.write("}");
+        return;
+      }
+
+      case "TSRXExpression": {
+        const n = node as AST.TSRXExpression;
+        if (
+          n.expression.type === "Identifier" &&
+          this.#defineNames.has((n.expression as AST.Identifier).name)
+        ) {
+          const id = n.expression as AST.Identifier;
+          this.#w.write("<${");
+          this.#w.writeNode(id.name, (id as Sliceable).start ?? 0);
+          this.#w.write("}/>");
+          return;
+        }
+        if (n.expression.type === "Literal") {
+          const safe = this.#safeLiteralText((n.expression as AST.Literal).value);
+          if (safe !== null) {
+            this.#w.writeNode(safe, (n.expression as Sliceable).start ?? 0);
+            return;
+          }
+        }
+        this.#w.write("${");
+        this.#w.writeSrc(n.expression as Sliceable);
+        this.#w.write("}");
+        return;
+      }
+
+      case "Element":
+        this.#element(node as unknown as TsrxElement);
+        return;
+
+      case "ExpressionStatement":
+        this.#w.write("${");
+        this.#w.writeSrc((node as AST.ExpressionStatement).expression as Sliceable);
+        this.#w.write("}");
+        return;
+
+      default:
+        this.#stmt(node);
+        return;
+    }
+  }
+
+  // ── Element ────────────────────────────────────────────────────────────────
+
+  #element(el: TsrxElement): void {
+    const tagRaw = this.#slice(el.id as Sliceable);
+
+    if (tagRaw === "style") {
+      this.#w.write(`<style>${typeof el.css === "string" ? el.css : ""}</style>`);
+      return;
+    }
+
+    const isDynamic =
+      el.id.type === "Identifier" &&
+      this.#defineNames.has((el.id as AST.Identifier).name);
+
+    const refAttr = el.attributes.find((a) => a.type === "RefAttribute") as
+      | (AST.BaseNode & { type: "RefAttribute"; argument: AST.Expression })
+      | undefined;
+    const refName =
+      refAttr?.argument.type === "Identifier"
+        ? (refAttr.argument as AST.Identifier).name
+        : undefined;
+
+    if (isDynamic) {
+      this.#w.write("<${");
+      this.#w.writeSrc(el.id as Sliceable);
+      this.#w.write("}");
+    } else if (refName) {
+      this.#w.write("<");
+      this.#w.writeSrc(el.id as Sliceable);
+      this.#w.write(`/${refName}`);
+    } else {
+      this.#w.write("<");
+      this.#w.writeSrc(el.id as Sliceable);
+    }
+
+    for (const attr of el.attributes) {
+      if (attr.type === "RefAttribute") continue;
+      if (attr.type === "SpreadAttribute") {
+        this.#w.write(" ...");
+        this.#w.writeSrc((attr as AST.SpreadAttribute).argument as Sliceable);
+      } else if (attr.type === "Attribute") {
+        const a = attr as AST.Attribute;
+        const n = a.name.name;
+        if (a.shorthand && a.value?.type === "Identifier") {
+          const val = a.value as AST.Identifier;
+          this.#w.write(` ${n}=`);
+          this.#w.writeNode(val.name, (val as Sliceable).start ?? 0);
+        } else {
+          this.#w.write(` ${n}=`);
+          const raw = this.#attrValue(a.value);
+          this.#w.writeNode(raw, (a.value as Sliceable | null)?.start ?? 0);
+        }
+      }
+    }
+
+    if (el.selfClosing) {
+      this.#w.write("/>");
+      return;
+    }
+    this.#w.write(">");
+    this.#children(el.children as AST.Node[]);
+    if (isDynamic) {
+      this.#w.write("</${");
+      this.#w.writeSrc(el.id as Sliceable);
+      this.#w.write("}>");
+    } else {
+      this.#w.write(`</${tagRaw}>`);
+    }
+  }
+
+  // ── Variable declarations ──────────────────────────────────────────────────
+
+  #variableDeclaration(vd: AST.VariableDeclaration): void {
+    for (const d of vd.declarations) {
+      const pat = d.id as Sliceable & { typeAnnotation?: { start?: number } };
+      const patEnd = pat.typeAnnotation?.start ?? pat.end;
+      const patSlice = this.#source.slice(pat.start, patEnd).trimEnd();
+
+      if (d.init && (d.init as AST.Node).type === "Tsx") {
+        if (d.id.type === "Identifier") {
+          const name = (d.id as AST.Identifier).name;
+          const tsx = d.init as unknown as AST.Tsx;
+          this.#w.write(`<define/${name}>`);
+          for (const c of tsx.children) this.#jsxChild(c);
+          this.#w.write("</define>");
+        }
+      } else if (vd.kind === "const" && d.init != null) {
+        this.#w.write("<const/");
+        this.#w.writeNode(patSlice, pat.start ?? 0);
+        this.#w.write("=");
+        this.#w.writeSrc(d.init as Sliceable);
+        this.#w.write("/>");
+      } else {
+        this.#w.write("<let/");
+        this.#w.writeNode(patSlice, pat.start ?? 0);
+        if (d.init) {
+          this.#w.write("=");
+          this.#w.writeSrc(d.init as Sliceable);
+        }
+        this.#w.write("/>");
+      }
+    }
+  }
+
+  // ── Control flow ───────────────────────────────────────────────────────────
+
+  #emitIf(node: AST.IfStatement): void {
+    this.#w.write("<if=");
+    this.#w.writeNode(this.#slice(node.test as Sliceable), (node.test as Sliceable).start ?? 0);
+    this.#w.write(">");
+    this.#block(node.consequent);
+    this.#w.write("</if>");
+
+    let alt: AST.Statement | null | undefined = node.alternate;
+    while (alt?.type === "IfStatement") {
+      const i = alt as AST.IfStatement;
+      this.#w.write("<else if=");
+      this.#w.writeNode(this.#slice(i.test as Sliceable), (i.test as Sliceable).start ?? 0);
+      this.#w.write(">");
+      this.#block(i.consequent);
+      this.#w.write("</else>");
+      alt = i.alternate ?? null;
+    }
+
+    if (alt?.type === "BlockStatement") {
+      if (this.#probe((t) => t.#stmts((alt as AST.BlockStatement).body))) {
+        this.#w.write("<else>");
+        this.#stmts((alt as AST.BlockStatement).body);
+        this.#w.write("</else>");
+      }
+    }
+  }
+
+  #emitForOf(node: AST.ForOfStatement): void {
+    const left = node.left as AST.VariableDeclaration;
+    const d = left.declarations[0];
+    const bind = d?.id.type === "Identifier" ? (d.id as AST.Identifier).name : undefined;
+    const idx =
+      node.index?.type === "Identifier" ? (node.index as AST.Identifier).name : null;
+    const keyExpr = node.key ?? null;
+
+    if (bind && idx) {
+      this.#w.write(`<for|${bind}, ${idx}| of=`);
+    } else if (bind) {
+      this.#w.write(`<for|${bind}| of=`);
+    } else {
+      this.#w.write("<for of=");
+    }
+    this.#w.writeNode(this.#slice(node.right as Sliceable), (node.right as Sliceable).start ?? 0);
+
+    if (bind && !idx && keyExpr) {
+      this.#w.write(` by=(${bind}) => `);
+      this.#w.writeSrc(keyExpr as Sliceable);
+    }
+    this.#w.write(">");
+    this.#block(node.body);
+    this.#w.write("</for>");
+  }
+
+  #emitSwitch(node: AST.SwitchStatement): void {
+    const disc = this.#slice(node.discriminant as Sliceable);
+    let first = true;
+
+    for (const c of node.cases) {
+      const body = c.consequent.filter(
+        (s) => s.type !== "BreakStatement" && s.type !== "EmptyStatement",
+      );
+
+      if (c.test == null) {
+        if (this.#probe((t) => t.#stmts(body))) {
+          this.#w.write("<else>");
+          this.#stmts(body);
+          this.#w.write("</else>");
+        }
+        continue;
+      }
+
+      const cond = `${disc}===${this.#slice(c.test as Sliceable)}`;
+      if (first) {
+        this.#w.write("<if=");
+        this.#w.writeNode(cond, (node.discriminant as Sliceable).start ?? 0);
+        this.#w.write(">");
+        this.#stmts(body);
+        this.#w.write("</if>");
+        first = false;
+      } else {
+        this.#w.write("<else if=");
+        this.#w.writeNode(cond, (node.discriminant as Sliceable).start ?? 0);
+        this.#w.write(">");
+        this.#stmts(body);
+        this.#w.write("</else>");
+      }
+    }
+  }
+
+  #emitTry(node: AST.TryStatement): void {
+    this.#w.write("<try>");
+    this.#stmts(node.block.body);
+
+    const pending = (node as AST.TryStatement & { pending?: AST.BlockStatement }).pending;
+    if (pending?.body?.length) {
+      this.#w.write("<@placeholder>");
+      this.#stmts(pending.body);
+      this.#w.write("</@placeholder>");
+    }
+
+    if (node.handler?.param?.type === "Identifier") {
+      const err = (node.handler.param as AST.Identifier).name;
+      this.#w.write(`<@catch|${err}|>`);
+      this.#stmts(node.handler.body.body);
+      this.#w.write("</@catch>");
+    }
+
+    this.#w.write("</try>");
+  }
+
+  /** Emit a block statement's body, or a single non-block statement. */
+  #block(node: AST.Statement): void {
+    if (node.type === "BlockStatement") {
+      this.#stmts((node as AST.BlockStatement).body);
+    } else {
+      this.#stmt(node as AST.Node);
+    }
+  }
+
+  // ── JSX (inside <tsx> blocks) ──────────────────────────────────────────────
+
+  #jsxElement(el: JSXElement): void {
+    const opening = el.openingElement;
+    const tag = opening.name.type === "JSXIdentifier" ? opening.name.name : "div";
+
+    this.#w.write(`<${tag}`);
+    for (const attr of opening.attributes) {
+      if (attr.type === "JSXSpreadAttribute") {
+        this.#w.write(" ...");
+        this.#w.writeSrc(attr.argument as Sliceable);
+      } else if (attr.type === "JSXAttribute") {
+        const attrName = attr.name.type === "JSXIdentifier" ? attr.name.name : "data";
+        if (attr.value == null) {
+          this.#w.write(` ${attrName}`);
+        } else if (attr.value.type === "JSXExpressionContainer") {
+          this.#w.write(` ${attrName}=`);
+          const exprNode = attr.value.expression as AST.Expression;
+          const raw = this.#slice(exprNode as Sliceable);
+          this.#w.writeNode(
+            this.#needsAttrParens(raw) ? `(${raw})` : raw,
+            (exprNode as Sliceable).start ?? 0,
+          );
+        } else if (attr.value.type === "Literal") {
+          const lit = attr.value as AST.Literal;
+          this.#w.write(` ${attrName}=`);
+          this.#w.writeNode(JSON.stringify(lit.value), (lit as Sliceable).start ?? 0);
+        }
+      }
+    }
+
+    if (opening.selfClosing) {
+      this.#w.write("/>");
+      return;
+    }
+    this.#w.write(">");
+    for (const c of el.children) this.#jsxChild(c);
+    this.#w.write(`</${tag}>`);
+  }
+
+  #jsxChild(
+    child: JSXElement | JSXText | JSXExpressionContainer | JSXFragment | JSXSpreadChild,
+  ): void {
+    switch (child.type) {
+      case "JSXText": {
+        const v = child.value.replace(/\s+/g, " ");
+        if (v.trim() !== "") this.#w.write(v);
+        return;
+      }
+      case "JSXExpressionContainer": {
+        const expr = child.expression;
+        if (expr.type === "JSXEmptyExpression") return;
+        if (expr.type === "Literal") {
+          const safe = this.#safeLiteralText((expr as AST.Literal).value);
+          if (safe !== null) {
+            this.#w.writeNode(safe, (expr as Sliceable).start ?? 0);
+            return;
+          }
+        }
+        this.#w.write("${");
+        this.#w.writeSrc(expr as Sliceable);
+        this.#w.write("}");
+        return;
+      }
+      case "JSXElement":
+        this.#jsxElement(child);
+        return;
+      default:
+        return;
+    }
+  }
+
+  // ── Probing ────────────────────────────────────────────────────────────────
+  //
+  // Some emit paths need to know whether a block produces output *before*
+  // committing wrapper tags. #probe() runs a callback against a throwaway
+  // Transformer that shares #source and #defineNames but has its own Writer,
+  // then returns the output (empty string = no output).
+
+  #probe(fn: (t: Transformer) => void): string {
+    const scratch = new Transformer(null, this.#source, this.filename);
+    scratch.#defineNames = this.#defineNames;
+    fn(scratch);
+    return scratch.#w.toString();
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  #slice(node: Sliceable): string {
+    if (node.start == null || node.end == null) return "";
+    return this.#source.slice(node.start, node.end);
+  }
+
+  #attrValue(expr: AST.Expression | null): string {
+    if (expr == null) return "true";
+    const raw = this.#slice(expr as Sliceable);
+    return this.#needsAttrParens(raw) ? `(${raw})` : raw;
+  }
+
+  #needsAttrParens(src: string): boolean {
+    let depth = 0;
+    let quote: string | null = null;
+    for (let i = 0; i < src.length; i++) {
+      const c = src[i]!;
+      if (quote) {
+        if (c === "\\") i++;
+        else if (c === quote) quote = null;
+        continue;
+      }
+      if (c === "'" || c === '"' || c === "`") { quote = c; continue; }
+      if (c === "(") depth++;
+      else if (c === ")" && depth > 0) depth--;
+      else if (depth === 0 && (c === "<" || c === ">")) return true;
+    }
+    return false;
+  }
+
+  #safeLiteralText(value: unknown): string | null {
+    if (typeof value !== "string") return null;
+    if (/[<>${}]/.test(value)) return null;
+    return value;
+  }
+
+  #throwIfLazyPattern(pattern: AST.Pattern | null): void {
+    if (pattern == null) return;
+    switch (pattern.type) {
+      case "ObjectPattern":
+        if ((pattern as AST.ObjectPattern & { lazy?: boolean }).lazy) {
+          throw new Error(
+            "Lazy destructuring (&{...}) is not yet supported by @marko/tsrx.",
+          );
+        }
+        for (const p of (pattern as AST.ObjectPattern).properties) {
+          if (p.type === "Property") this.#throwIfLazyPattern(p.value as AST.Pattern);
+          if (p.type === "RestElement") this.#throwIfLazyPattern(p.argument);
+        }
+        break;
+      case "ArrayPattern":
+        if ((pattern as AST.ArrayPattern & { lazy?: boolean }).lazy) {
+          throw new Error(
+            "Lazy destructuring (&[...]) is not yet supported by @marko/tsrx.",
+          );
+        }
+        for (const el of (pattern as AST.ArrayPattern).elements) {
+          if (el) this.#throwIfLazyPattern(el as AST.Pattern);
+        }
+        break;
+      case "AssignmentPattern":
+        this.#throwIfLazyPattern((pattern as AST.AssignmentPattern).left);
+        break;
+      case "RestElement":
+        this.#throwIfLazyPattern((pattern as AST.RestElement).argument);
+        break;
+    }
+  }
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export function transform(
+  ast: ParseResult["ast"],
+  source: string,
+  filename?: string,
+): CompileResult {
+  const result = new Transformer(ast, source, filename).result();
+  return { ast, code: result.code, map: result.map };
+}

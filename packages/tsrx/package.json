@@ -23,6 +23,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@jridgewell/sourcemap-codec": "^1.5.0",
     "@tsrx/core": "^0.0.14"
   },
   "publishConfig": {
