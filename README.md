@@ -2,8 +2,10 @@
 
 Write [Marko](https://markojs.com/) components in [TSRX](https://tsrx.dev/).
 
-Each item in a keyed list gets its **own independent reactive state** —
-Marko surgically updates only the counter that changed, with no virtual DOM.
+![TSRX syntax transitioning to compiled Marko output, using the code below](./transition.gif)
+
+<details>
+<summary>Show before & after</summary>
 
 <table>
 <tr>
@@ -89,6 +91,8 @@ export default component() {
 </td>
 </tr>
 </table>
+
+</details>
 
 ## Packages
 
