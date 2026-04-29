@@ -1,0 +1,21 @@
+{
+  "name": "basic-spa",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@marko/tsrx": "*",
+    "marko": "^6.0.0"
+  },
+  "devDependencies": {
+    "@marko/compiler": "^5.39.0",
+    "@marko/vite": "^6.0.0",
+    "@marko/vite-plugin-tsrx": "*",
+    "vite": "^8.0.0"
+  }
+}

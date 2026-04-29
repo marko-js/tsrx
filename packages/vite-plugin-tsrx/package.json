@@ -23,10 +23,8 @@
     "build": "tsc --build",
     "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "@marko/tsrx": "^0.0.1"
-  },
   "peerDependencies": {
+    "@marko/tsrx": "^0.0.1",
     "vite": ">=5.0.0"
   },
   "publishConfig": {

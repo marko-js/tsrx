@@ -6,7 +6,8 @@
   "author": "LuLaValva",
   "type": "module",
   "workspaces": [
-    "./packages/*"
+    "./packages/*",
+    "./examples/*"
   ],
   "scripts": {
     "build": "tsc -b tsconfig.build.json",
