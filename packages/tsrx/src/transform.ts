@@ -136,8 +136,9 @@ export class Transformer {
             ? (node as AST.ExportNamedDeclaration).declaration
             : node
         ) as unknown as Component;
-        this.#w.write(`<define/${name}>`);
-        this.#compileComponent(comp);
+        const paramStr = this.#defineParamStr(comp.params);
+        this.#w.write(paramStr ? `<define/${name}|${paramStr}|>` : `<define/${name}>`);
+        this.#compileComponent(comp, /* skipInputParam */ true);
         this.#w.write("</define>\n");
       } else {
         this.#w.write("static ");
@@ -152,11 +153,28 @@ export class Transformer {
 
   // ── Component ──────────────────────────────────────────────────────────────
 
-  #compileComponent(comp: Component): void {
+  #compileComponent(comp: Component, skipInputParam = false): void {
     // Pre-pass: collect defineNames before any emit so the field is stable.
     this.#defineNames = this.#collectDefineNames(comp.body);
-    this.#emitInputParam(comp.params);
+    if (!skipInputParam) this.#emitInputParam(comp.params);
     this.#stmts(comp.body);
+  }
+
+  /**
+   * Build the raw param string for a named `<define>` component, e.g.
+   * `component Foo(bar: Baz)` → `"bar: Baz"`.  Returns an empty string
+   * when there are no params.
+   */
+  #defineParamStr(params: AST.Pattern[]): string {
+    if (!params.length) return "";
+    const parts: string[] = [];
+    for (const p of params) {
+      const start = (p as Sliceable).start;
+      const end = (p as Sliceable).end;
+      if (start == null || end == null) continue;
+      parts.push(this.#source.slice(start, end));
+    }
+    return parts.join(", ");
   }
 
   #collectDefineNames(body: AST.Node[]): Set<string> {
