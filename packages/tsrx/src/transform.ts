@@ -433,8 +433,9 @@ export class Transformer {
     }
 
     const isDynamic =
-      el.id.type === "Identifier" &&
-      this.#defineNames.has((el.id as AST.Identifier).name);
+      el.id.type === "MemberExpression" ||
+      (el.id.type === "Identifier" &&
+        this.#defineNames.has((el.id as AST.Identifier).name));
 
     const refAttr = el.attributes.find((a) => a.type === "RefAttribute") as
       | (AST.BaseNode & { type: "RefAttribute"; argument: AST.Expression })
