@@ -71,9 +71,19 @@ export class Transformer {
       }
     }
 
-    const defines: Array<{ name: string; node: AST.Node }> = [];
+    /**
+     * Categorised program nodes.
+     *
+     * `rootComp` — the component whose body is emitted at the Marko root.
+     * `defineComps` — named components emitted as `<define/Name>`.
+     * `statics` — everything else (imports, top-level stmts) emitted as `static`.
+     */
+    type NamedComp = { name: string; comp: Component; node: AST.Node };
+    const namedComps: NamedComp[] = [];
     let defaultComp: Component | undefined;
+    const statics: AST.Node[] = [];
 
+    // ── First pass: classify all top-level nodes ───────────────────────────
     for (const node of program.body as AST.Node[]) {
       switch (node.type) {
         case "Component": {
@@ -83,7 +93,7 @@ export class Transformer {
               "Anonymous components are not supported by @marko/tsrx.",
             );
           for (const p of comp.params) this.#throwIfLazyPattern(p);
-          defines.push({ name: comp.id.name, node });
+          namedComps.push({ name: comp.id.name, comp, node });
           break;
         }
 
@@ -112,22 +122,55 @@ export class Transformer {
                 "Anonymous components are not supported by @marko/tsrx.",
               );
             for (const p of comp.params) this.#throwIfLazyPattern(p);
-            defines.push({ name: comp.id.name, node });
+            namedComps.push({ name: comp.id.name, comp, node, exported: true } as NamedComp & { exported: boolean });
           } else {
-            defines.push({ name: "", node });
+            statics.push(node);
           }
           break;
         }
 
         default:
-          defines.push({ name: "", node });
+          statics.push(node);
           break;
       }
     }
 
-    if (!defaultComp) {
-      // No `export default component` — synthesise an empty one.
-      defaultComp = {
+    // ── Second pass: pick which component lives at the Marko root ──────────
+    //
+    // Rules (evaluated in priority order):
+    //   1. `export default component` → always wins.
+    //   2. Only one component total → it lives at root.
+    //   3. Exactly one *exported* named component → it wins.
+    //   4. Everything else → all components become `<define>`.
+    //
+    // In cases 2 & 3 the "winner" is removed from namedComps so it won't also
+    // be emitted as a <define>.
+
+    let rootComp: Component | undefined;
+
+    if (defaultComp) {
+      // Rule 1: explicit export default.
+      rootComp = defaultComp;
+    } else if (namedComps.length === 1) {
+      // Rule 2: exactly one component in the whole file.
+      rootComp = namedComps[0]!.comp;
+      namedComps.splice(0, 1);
+    } else {
+      // Rule 3: exactly one exported named component.
+      const exportedComps = namedComps.filter(
+        (c) => (c as NamedComp & { exported?: boolean }).exported,
+      );
+      if (exportedComps.length === 1) {
+        rootComp = exportedComps[0]!.comp;
+        const idx = namedComps.indexOf(exportedComps[0]!);
+        namedComps.splice(idx, 1);
+      }
+      // Rule 4: rootComp stays undefined → synthesise an empty component below.
+    }
+
+    if (!rootComp) {
+      // No winner — synthesise an empty Marko root.
+      rootComp = {
         type: "Component",
         id: null,
         params: [],
@@ -136,35 +179,42 @@ export class Transformer {
       } as unknown as Component;
     }
 
-    for (const { name, node } of defines) {
-      if (name) {
-        const comp = (
-          node.type === "ExportNamedDeclaration"
-            ? (node as AST.ExportNamedDeclaration).declaration
-            : node
-        ) as unknown as Component;
-        const paramStr = this.#defineParamStr(comp.params);
-        this.#w.write(paramStr ? `<define/${name}|${paramStr}|>` : `<define/${name}>`);
-        this.#compileComponent(comp, /* skipInputParam */ true);
-        this.#w.write("</define>\n");
-      } else {
-        this.#w.write("static ");
-        this.#w.writeSrc(node as Sliceable);
-        this.#w.nl();
-      }
+    // ── Emit statics ────────────────────────────────────────────────────────
+    for (const node of statics) {
+      this.#w.write("static ");
+      this.#w.writeSrc(node as Sliceable);
+      this.#w.nl();
     }
 
-    if (defines.length > 0) this.#w.nl();
-    this.#compileComponent(defaultComp);
+    // ── Emit <define> blocks ─────────────────────────────────────────────────
+    for (const { name, comp, node } of namedComps) {
+      const paramStr = this.#defineParamStr(comp.params);
+      this.#w.write(paramStr ? `<define/${name}|${paramStr}|>` : `<define/${name}>`);
+      this.#compileComponent(comp, /* skipInputParam */ true, /* childContext */ true);
+      this.#w.write("</define>\n");
+    }
+
+    if (statics.length > 0 || namedComps.length > 0) this.#w.nl();
+    this.#compileComponent(rootComp);
   }
 
   // ── Component ──────────────────────────────────────────────────────────────
 
-  #compileComponent(comp: Component, skipInputParam = false): void {
+  #compileComponent(
+    comp: Component,
+    skipInputParam = false,
+    childContext = false,
+  ): void {
     // Pre-pass: collect defineNames before any emit so the field is stable.
     this.#defineNames = this.#collectDefineNames(comp.body);
     if (!skipInputParam) this.#emitInputParam(comp.params);
-    this.#stmts(comp.body);
+    // <define> bodies are child content in Marko, so use #children (no `-- `).
+    // The root component is statement context, so use #stmts.
+    if (childContext) {
+      this.#children(comp.body);
+    } else {
+      this.#stmts(comp.body);
+    }
   }
 
   /**

@@ -174,8 +174,16 @@
   src: 2 "span" -> "span"
   src: 6 "span" -> "span"
 
-=== no-default-export ===
+=== multi-exported ===
   src: 2 "span" -> "span"
+  src: 2 "'fo" -> "foo"
+  src: 6 "span" -> "span"
+  src: 6 "'ba" -> "bar"
+
+=== multi-no-export ===
+  src: 2 "span" -> "span"
+  src: 2 "'fo" -> "foo"
+  src: 6 "'ba" -> "bar"
 
 === plain-destructure ===
   src: 1 "{ foo: { a: number; b: number }; arr: st" -> "{ foo: { a: number; b: number }; arr: st"
@@ -200,6 +208,22 @@
   src: 2 "br" -> "br"
   src: 3 "input" -> "input"
   src: 3 "\"text\"" -> "\"text\""
+
+=== single-export-wins ===
+  src: 2 "span" -> "span"
+  src: 2 "'helper tex" -> "helper text"
+  src: 5 "{ title: string }" -> "{ title: string }"
+  src: 5 "{ title }" -> "{ title }"
+  src: 6 "div" -> "div"
+  src: 7 "h1" -> "h1"
+  src: 7 "title" -> "title"
+  src: 8 "Helper" -> "Helper"
+
+=== single-no-export ===
+  src: 1 "{ name: string }" -> "{ name: string }"
+  src: 1 "{ name }" -> "{ name }"
+  src: 2 "h1" -> "h1"
+  src: 2 "name" -> "name"
 
 === string-attrs ===
   src: 2 "div" -> "div"
