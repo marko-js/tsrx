@@ -151,6 +151,7 @@ describe("browser: basic-spa", () => {
     // ensuring Marko's valueChange handler updates `draft` before Enter fires.
     await ctx.page.locator("input[type='text']").pressSequentially("Read a book");
     await ctx.page.locator("input[type='text']").press("Enter");
+    await ctx.page.waitForFunction(() => document.querySelectorAll(".todo-item").length === 3);
     await expect(ctx.page.locator(".todo-item").count()).resolves.toBe(3);
     const texts = await ctx.page.locator(".todo-item").allTextContents();
     expect(texts.some((t) => t.includes("Read a book"))).toBe(true);
