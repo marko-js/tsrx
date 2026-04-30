@@ -125,9 +125,14 @@ export class Transformer {
     }
 
     if (!defaultComp) {
-      throw new Error(
-        "A `.tsrx` file must have an `export default component` declaration.",
-      );
+      // No `export default component` — synthesise an empty one.
+      defaultComp = {
+        type: "Component",
+        id: null,
+        params: [],
+        body: [],
+        default: true,
+      } as unknown as Component;
     }
 
     for (const { name, node } of defines) {

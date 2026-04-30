@@ -1,0 +1,3 @@
+export component Foo() {
+  <span />
+}
