@@ -1,5 +1,13 @@
 # @marko/tsrx
 
+## 0.0.3
+
+### Patch Changes
+
+- a8565d0: Loosen rules for default export
+- 727288a: Member expression tag names map to dynamic tags
+- e7d8532: Control flow fixes
+
 ## 0.0.2
 
 ### Patch Changes

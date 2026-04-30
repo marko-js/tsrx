@@ -1,6 +1,6 @@
 {
   "name": "@marko/vite-plugin-tsrx",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Vite plugin for @marko/tsrx (.tsrx modules) targeting Marko 6",
   "keywords": [
     "marko",
@@ -38,7 +38,7 @@
   },
   "peerDependencies": {
     "@marko/compiler": ">=5.0.0",
-    "@marko/tsrx": "^0.0.2",
+    "@marko/tsrx": "^0.0.3",
     "vite": ">=5.0.0"
   },
   "peerDependenciesMeta": {
