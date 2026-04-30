@@ -1,0 +1,238 @@
+=== adjacent-inline-children ===
+  src: 1 "{ name: string }" -> "{ name: string }"
+  src: 1 "{ name }" -> "{ name }"
+  src: 2 "p" -> "p"
+  src: 2 "'Hello," -> "Hello, "
+  src: 2 "name" -> "name"
+  src: 2 "'" -> "!"
+  src: 3 "span" -> "span"
+  src: 3 "'before" -> "before "
+  src: 3 "'<em>mid</em>'" -> "'<em>mid</em>'"
+  src: 3 "' afte" -> " after"
+  src: 4 "p" -> "p"
+  src: 4 "b" -> "b"
+  src: 4 "'Bol" -> "Bold"
+  src: 4 "'," -> ", "
+  src: 4 "name" -> "name"
+  src: 4 "'" -> "!"
+  src: 5 "div" -> "div"
+  src: 6 "span" -> "span"
+  src: 6 "'" -> "a"
+  src: 7 "'betwee" -> "between"
+  src: 8 "span" -> "span"
+  src: 8 "'" -> "b"
+
+=== attr-dynamic-parens ===
+  src: 2 "a" -> "a"
+  src: 2 "0" -> "0"
+  src: 4 "span" -> "span"
+  src: 4 "a > 1 ? \"<\" : \">\")}" -> "(a > 1 ? \"<\" : \">\")"
+
+=== attr-shorthand ===
+  src: 2 "same" -> "same"
+  src: 2 "\"\"" -> "\"\""
+  src: 4 "input" -> "input"
+  src: 4 "same" -> "same"
+
+=== attr-spread ===
+  src: 2 "spread" -> "spread"
+  src: 2 "{}" -> "{}"
+  src: 4 "input" -> "input"
+  src: 4 "spread" -> "spread"
+
+=== control-for-index ===
+  src: 2 "items" -> "items"
+  src: 2 "[]" -> "[]"
+  src: 4 "items" -> "items"
+  src: 5 "li" -> "li"
+
+=== control-for-key ===
+  src: 2 "rows" -> "rows"
+  src: 2 "[{ id: \"1\" }]" -> "[{ id: \"1\" }]"
+  src: 4 "rows" -> "rows"
+  src: 4 "row.id" -> "row.id"
+  src: 5 "article" -> "article"
+
+=== control-if ===
+  src: 2 "ready" -> "ready"
+  src: 2 "false" -> "false"
+  src: 3 "maybe" -> "maybe"
+  src: 3 "false" -> "false"
+  src: 5 "ready" -> "ready"
+  src: 6 "p" -> "p"
+  src: 6 "\"yes\"" -> "\"yes\""
+  src: 7 "maybe" -> "maybe"
+  src: 8 "p" -> "p"
+  src: 8 "\"maybe\"" -> "\"maybe\""
+  src:10 "p" -> "p"
+  src:10 "\"no\"" -> "\"no\""
+
+=== control-switch ===
+  src: 2 "mode" -> "mode"
+  src: 2 "0" -> "0"
+  src: 3 "FIRST" -> "FIRST"
+  src: 3 "0" -> "0"
+  src: 5 "mode) {\n    " -> "mode===FIRST"
+  src: 7 "alpha" -> "alpha"
+  src:10 "beta" -> "beta"
+
+=== control-try ===
+  src: 3 "ok" -> "ok"
+  src: 6 "busy" -> "busy"
+  src: 9 "oops" -> "oops"
+
+=== count-with-gt ===
+  src: 2 "count" -> "count"
+  src: 2 "0" -> "0"
+  src: 4 "button" -> "button"
+  src: 4 "() => {\n    count++;\n  }}>" -> "(() => {\n    count++;\n  })"
+  src: 6 "count" -> "count"
+  src: 8 "count > 5) " -> "(count > 5)"
+  src: 9 "\"Large valu" -> "Large value"
+
+=== counter ===
+  src: 1 "{\n  label: string;\n  initial?: number;\n}" -> "{\n  label: string;\n  initial?: number;\n}"
+  src: 1 "{ label, initial = 0 }" -> "{ label, initial = 0 }"
+  src: 5 "count" -> "count"
+  src: 5 "initial" -> "initial"
+  src: 7 "div" -> "div"
+  src: 7 "\"counter\"" -> "\"counter\""
+  src: 8 "span" -> "span"
+  src: 8 "\"label\"" -> "\"label\""
+  src: 8 "label" -> "label"
+  src: 9 "button" -> "button"
+  src: 9 "() => { count--; }}>" -> "(() => { count--; })"
+  src: 9 "\"" -> "−"
+  src:10 "span" -> "span"
+  src:10 "\"value\"" -> "\"value\""
+  src:10 "count" -> "count"
+  src:11 "button" -> "button"
+  src:11 "() => { count++; }}>" -> "(() => { count++; })"
+  src:11 "\"" -> "+"
+
+=== define-with-input ===
+  src: 2 "span" -> "span"
+  src: 2 "bar.label" -> "bar.label"
+  src: 6 "Foo" -> "Foo"
+  src: 6 "myBaz" -> "myBaz"
+
+=== expression-attr ===
+  src: 1 "{ items: number[] }" -> "{ items: number[] }"
+  src: 1 "{ items }" -> "{ items }"
+  src: 2 "div" -> "div"
+  src: 2 "items.length" -> "items.length"
+  src: 2 "'" -> "x"
+
+=== inline-fn-attr ===
+  src: 1 "{ onClick: () => void }" -> "{ onClick: () => void }"
+  src: 1 "{ onClick }" -> "{ onClick }"
+  src: 2 "button" -> "button"
+  src: 2 "onClick" -> "onClick"
+  src: 2 "'clic" -> "click"
+  src: 3 "button" -> "button"
+  src: 3 "() => { onClick(); }}>" -> "(() => { onClick(); })"
+  src: 3 "'wra" -> "wrap"
+  src: 4 "input" -> "input"
+  src: 4 "function (e: InputEvent) { console.log(e" -> "function (e: InputEvent) { console.log(e"
+
+=== input-param-name ===
+  src: 1 "{ label: string }" -> "{ label: string }"
+  src: 2 "span" -> "span"
+  src: 2 "input.label" -> "input.label"
+
+=== input-type-bail ===
+  src: 1 "import type { BaseProps } from './shared" -> "import type { BaseProps } from './shared"
+  src: 3 "BaseProps & { title: string }" -> "BaseProps & { title: string }"
+  src: 3 "props" -> "props"
+  src: 4 "h1" -> "h1"
+  src: 4 "props.title" -> "props.title"
+
+=== interp-text-html-expr ===
+  src: 2 "label" -> "label"
+  src: 2 "\"\"" -> "\"\""
+  src: 3 "htmlBlob" -> "htmlBlob"
+  src: 3 "\"\"" -> "\"\""
+  src: 4 "counter" -> "counter"
+  src: 4 "0" -> "0"
+  src: 6 "div" -> "div"
+  src: 7 "label" -> "label"
+  src: 8 "htmlBlob" -> "htmlBlob"
+  src: 9 "counter" -> "counter"
+
+=== let-with-init ===
+  src: 2 "count" -> "count"
+  src: 2 "0" -> "0"
+  src: 3 "p" -> "p"
+  src: 3 "count" -> "count"
+
+=== module-imports ===
+  src: 1 "import { helper } from 'somewhere';" -> "import { helper } from 'somewhere';"
+  src: 4 "div" -> "div"
+  src: 4 "helper()" -> "helper()"
+
+=== multi ===
+  src: 2 "span" -> "span"
+  src: 6 "span" -> "span"
+
+=== no-default-export ===
+  src: 2 "span" -> "span"
+
+=== plain-destructure ===
+  src: 1 "{ foo: { a: number; b: number }; arr: st" -> "{ foo: { a: number; b: number }; arr: st"
+  src: 1 "{ foo, arr }" -> "{ foo, arr }"
+  src: 2 "{ a, b }" -> "{ a, b }"
+  src: 2 "foo" -> "foo"
+  src: 3 "[x, y]" -> "[x, y]"
+  src: 3 "arr" -> "arr"
+  src: 4 "div" -> "div"
+  src: 4 "a" -> "a"
+
+=== props-input-type ===
+  src: 1 "{ id: string }" -> "{ id: string }"
+  src: 1 "props" -> "props"
+  src: 2 "div" -> "div"
+
+=== ref-tag ===
+  src: 2 "box" -> "box"
+  src: 4 "input" -> "input"
+
+=== self-closing ===
+  src: 2 "br" -> "br"
+  src: 3 "input" -> "input"
+  src: 3 "\"text\"" -> "\"text\""
+
+=== string-attrs ===
+  src: 2 "div" -> "div"
+  src: 2 "\"wrapper\"" -> "\"wrapper\""
+  src: 2 "\"x\"" -> "\"x\""
+  src: 2 "'h" -> "hi"
+
+=== stub-success ===
+  src: 2 "div" -> "div"
+  src: 2 "\"h" -> "hi"
+
+=== style-tag ===
+
+=== top-level-text ===
+  src: 1 "{ count: number }" -> "{ count: number }"
+  src: 1 "{ count }" -> "{ count }"
+  src: 2 "'Hell" -> "Hello"
+  src: 3 "count" -> "count"
+  src: 4 "'<em>raw</em>'" -> "'<em>raw</em>'"
+
+=== tsx-define-dynamic ===
+  src: 2 "\"x\"" -> "\"x\""
+  src: 2 "\"H" -> "Hi"
+  src: 4 "title" -> "title"
+
+=== typed-identifier-param ===
+  src: 1 "MyProps" -> "MyProps"
+  src: 1 "props" -> "props"
+  src: 2 "h1" -> "h1"
+  src: 2 "props.title" -> "props.title"
+
+=== typed-object-param ===
+  src: 1 "{ name: string }" -> "{ name: string }"
+  src: 1 "{ name }" -> "{ name }"
+  src: 2 "h1" -> "h1"
+  src: 2 "name" -> "name"

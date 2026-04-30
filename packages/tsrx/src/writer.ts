@@ -8,6 +8,13 @@ export type SourceMap = {
   mappings: string;
 };
 
+/** A single source ↔ generated mapping with exact token lengths. */
+export type MappingEntry = {
+  sourceOffset: number;
+  generatedOffset: number;
+  length: number;
+};
+
 // ─── Writer ───────────────────────────────────────────────────────────────────
 //
 // The Marko target emits a string in a different language (not a new AST), so
@@ -23,11 +30,13 @@ type Segment = [number, 0, number, number];
 
 export class Writer {
   #chunks: string[] = [];
+  #source: string;
+  #genOffset = 0;
   #genLine = 0;
   #genCol = 0;
   #lines: Segment[][] = [[]];
-  #lineStarts: number[];
-  #source: string;
+  #srcLineStarts: number[];
+  #mappingEntries: MappingEntry[] = [];
 
   constructor(source: string) {
     this.#source = source;
@@ -35,7 +44,7 @@ export class Writer {
     for (let i = 0; i < source.length; i++) {
       if (source[i] === "\n") starts.push(i + 1);
     }
-    this.#lineStarts = starts;
+    this.#srcLineStarts = starts;
   }
 
   write(text: string): this {
@@ -50,13 +59,19 @@ export class Writer {
         this.#genCol++;
       }
     }
+    this.#genOffset += text.length;
     return this;
   }
 
   writeNode(text: string, sourceOffset: number): this {
     if (!text) return this;
-    const [srcLine, srcCol] = this.#offsetToLineCol(sourceOffset);
+    const [srcLine, srcCol] = this.#srcLineCol(sourceOffset);
     this.#lines[this.#genLine]!.push([this.#genCol, 0, srcLine, srcCol]);
+    this.#mappingEntries.push({
+      sourceOffset,
+      generatedOffset: this.#genOffset,
+      length: text.length,
+    });
     return this.write(text);
   }
 
@@ -73,6 +88,10 @@ export class Writer {
     return this.#chunks.join("");
   }
 
+  get mappingEntries(): MappingEntry[] {
+    return this.#mappingEntries;
+  }
+
   generateMap(filename: string | undefined, source: string): SourceMap {
     return {
       version: "3",
@@ -83,14 +102,14 @@ export class Writer {
     };
   }
 
-  #offsetToLineCol(offset: number): [number, number] {
+  #srcLineCol(offset: number): [number, number] {
     let lo = 0;
-    let hi = this.#lineStarts.length - 1;
+    let hi = this.#srcLineStarts.length - 1;
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1;
-      if (this.#lineStarts[mid]! <= offset) lo = mid;
+      if (this.#srcLineStarts[mid]! <= offset) lo = mid;
       else hi = mid - 1;
     }
-    return [lo, offset - this.#lineStarts[lo]!];
+    return [lo, offset - this.#srcLineStarts[lo]!];
   }
 }
