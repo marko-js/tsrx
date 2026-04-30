@@ -1,4 +1,5 @@
 import type { ParseResult } from "@tsrx/core/types";
+import type { SourceMap } from "./writer.js";
 import type * as AST from "estree";
 import type {
   JSXElement,
@@ -11,7 +12,7 @@ import type {
 export type CompileResult = {
   ast: ParseResult["ast"];
   code: string;
-  map: unknown;
+  map: SourceMap;
 };
 
 /** Nodes that carry source positions, used for slicing and source mapping. */

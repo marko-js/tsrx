@@ -1,7 +1,7 @@
 import { encode } from "@jridgewell/sourcemap-codec";
 
-type SourceMap = {
-  version: 3;
+export type SourceMap = {
+  version: "3";
   sources: string[];
   sourcesContent: string[];
   names: string[];
@@ -75,7 +75,7 @@ export class Writer {
 
   generateMap(filename: string | undefined, source: string): SourceMap {
     return {
-      version: 3,
+      version: "3",
       sources: [filename ?? ""],
       sourcesContent: [source],
       names: [],
