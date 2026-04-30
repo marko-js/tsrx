@@ -13,6 +13,7 @@ export type CompileResult = {
   ast: ParseResult["ast"];
   code: string;
   map: SourceMap;
+  writer: Writer;
 };
 
 /** Nodes that carry source positions, used for slicing and source mapping. */
@@ -56,7 +57,7 @@ export class Transformer {
   result(): CompileResult {
     const code = this.#w.toString();
     const map = this.#w.generateMap(this.filename, this.#source);
-    return { ast: undefined as never, code, map };
+    return { ast: undefined as never, code, map, writer: this.#w };
   }
 
   // ── Top-level program walk ─────────────────────────────────────────────────
@@ -817,5 +818,5 @@ export function transform(
   filename?: string,
 ): CompileResult {
   const result = new Transformer(ast, source, filename).result();
-  return { ast, code: result.code, map: result.map };
+  return { ast, code: result.code, map: result.map, writer: result.writer };
 }
