@@ -1,6 +1,6 @@
 {
   "name": "@marko/tsrx",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Marko Tags API compiler built on @tsrx/core",
   "keywords": [
     "marko",
