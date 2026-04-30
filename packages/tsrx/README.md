@@ -27,7 +27,7 @@ const { files } = compile(source, "App.tsrx");
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `component App(props: T) { ... }`                         | `export type Input = T;` + `<const/props=input/>`                                                                           |
 | `component App({ a, b }: T) { ... }`                      | `export type Input = T;` + `<const/{ a, b }=input/>`                                                                        |
-| `component App() { ... }`                                  | (no Input type, no binding)                                                                                                 |
+| `component App() { ... }`                                 | (no Input type, no binding)                                                                                                 |
 | `<div class="x">{expr}</div>`                             | `<div class="x">${expr}</div>`                                                                                              |
 | `{text "safe string"}`                                    | `safe string` (plain text when value contains none of `< > $ {`)                                                            |
 | `{text expr}`                                             | `${expr}`                                                                                                                   |
@@ -38,12 +38,13 @@ const { files } = compile(source, "App.tsrx");
 | `<div {...rest}>`                                         | `<div ...rest>`                                                                                                             |
 | `const name = expr`                                       | `<const/name=expr/>`                                                                                                        |
 | `let name` / `let name = expr`                            | `<let/name/>` / `<let/name=expr/>`                                                                                          |
-| `const title = <tsx><span class="x">{"Hi"}</span></tsx>;` | `<define/title><span class="x">${"Hi"}</span></define>` · use `{title}` → Marko `<${title}/>`                              |
+| `const title = <tsx><span class="x">{"Hi"}</span></tsx>;` | `<define/title><span class="x">${"Hi"}</span></define>` · use `{title}` → Marko `<${title}/>`                               |
+| `<input.content/>`                                        | `<${input.content}/>` (member expression tag names map to dynamic tags)                                                     |
 | `if / else if / else`                                     | `<if=...>`, `<else if=...>`, `<else>`                                                                                       |
 | `for (const x of xs; index i)`                            | `<for\|x, i\| of=xs>`                                                                                                       |
 | `for (const x of xs; key x.id)`                           | `<for\|x\| of=xs by=(x) => x.id>`                                                                                           |
 | `switch (d) { case a: ...; default: ...; }`               | chained `<if=d===a>` / `<else>`                                                                                             |
-| `try { ... } pending { ... } catch (err) { ... }`         | `<try>` … `<@placeholder>` … `<@catch|err|>` … `</try>` (catch param name replaces `err`)                                  |
+| `try { ... } pending { ... } catch (err) { ... }`         | `<try>` … `<@placeholder>` … `<@catch\|err\|>` … `</try>` (catch param name replaces `err`)                                 |
 | `<style>...</style>`                                      | `<style>...</style>` (passed through as CSS-modules-friendly; scoped hash is applied by the existing `@tsrx/core` pipeline) |
 
 ## Not yet supported (MVP)

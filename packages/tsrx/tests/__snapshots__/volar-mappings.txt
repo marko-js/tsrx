@@ -213,6 +213,10 @@
 
 === style-tag ===
 
+=== tag-member-expression ===
+  src: 2 "div" -> "div"
+  src: 2 "input.content" -> "input.content"
+
 === top-level-text ===
   src: 1 "{ count: number }" -> "{ count: number }"
   src: 1 "{ count }" -> "{ count }"
