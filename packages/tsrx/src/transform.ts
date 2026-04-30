@@ -529,7 +529,7 @@ export class Transformer {
 
   #emitIf(node: AST.IfStatement): void {
     this.#w.write("<if=");
-    this.#w.writeNode(this.#slice(node.test as Sliceable), (node.test as Sliceable).start ?? 0);
+    this.#w.writeNode(this.#attrValue(node.test as unknown as AST.Expression), (node.test as Sliceable).start ?? 0);
     this.#w.write(">");
     this.#block(node.consequent);
     this.#w.write("</if>");
@@ -538,7 +538,7 @@ export class Transformer {
     while (alt?.type === "IfStatement") {
       const i = alt as AST.IfStatement;
       this.#w.write("<else if=");
-      this.#w.writeNode(this.#slice(i.test as Sliceable), (i.test as Sliceable).start ?? 0);
+      this.#w.writeNode(this.#attrValue(i.test as unknown as AST.Expression), (i.test as Sliceable).start ?? 0);
       this.#w.write(">");
       this.#block(i.consequent);
       this.#w.write("</else>");
@@ -546,9 +546,9 @@ export class Transformer {
     }
 
     if (alt?.type === "BlockStatement") {
-      if (this.#probe((t) => t.#stmts((alt as AST.BlockStatement).body))) {
+      if (this.#probe((t) => t.#blockStmts((alt as AST.BlockStatement).body))) {
         this.#w.write("<else>");
-        this.#stmts((alt as AST.BlockStatement).body);
+        this.#blockStmts((alt as AST.BlockStatement).body);
         this.#w.write("</else>");
       }
     }
@@ -569,7 +569,7 @@ export class Transformer {
     } else {
       this.#w.write("<for of=");
     }
-    this.#w.writeNode(this.#slice(node.right as Sliceable), (node.right as Sliceable).start ?? 0);
+    this.#w.writeNode(this.#attrValue(node.right as unknown as AST.Expression), (node.right as Sliceable).start ?? 0);
 
     if (bind && !idx && keyExpr) {
       this.#w.write(` by=(${bind}) => `);
@@ -590,9 +590,9 @@ export class Transformer {
       );
 
       if (c.test == null) {
-        if (this.#probe((t) => t.#stmts(body))) {
+        if (this.#probe((t) => t.#blockStmts(body))) {
           this.#w.write("<else>");
-          this.#stmts(body);
+          this.#blockStmts(body);
           this.#w.write("</else>");
         }
         continue;
@@ -603,14 +603,14 @@ export class Transformer {
         this.#w.write("<if=");
         this.#w.writeNode(cond, (node.discriminant as Sliceable).start ?? 0);
         this.#w.write(">");
-        this.#stmts(body);
+        this.#blockStmts(body);
         this.#w.write("</if>");
         first = false;
       } else {
         this.#w.write("<else if=");
         this.#w.writeNode(cond, (node.discriminant as Sliceable).start ?? 0);
         this.#w.write(">");
-        this.#stmts(body);
+        this.#blockStmts(body);
         this.#w.write("</else>");
       }
     }
@@ -618,32 +618,38 @@ export class Transformer {
 
   #emitTry(node: AST.TryStatement): void {
     this.#w.write("<try>");
-    this.#stmts(node.block.body);
+    this.#blockStmts(node.block.body);
 
     const pending = (node as AST.TryStatement & { pending?: AST.BlockStatement }).pending;
     if (pending?.body?.length) {
       this.#w.write("<@placeholder>");
-      this.#stmts(pending.body);
+      this.#blockStmts(pending.body);
       this.#w.write("</@placeholder>");
     }
 
     if (node.handler?.param?.type === "Identifier") {
       const err = (node.handler.param as AST.Identifier).name;
       this.#w.write(`<@catch|${err}|>`);
-      this.#stmts(node.handler.body.body);
+      this.#blockStmts(node.handler.body.body);
       this.#w.write("</@catch>");
     }
 
     this.#w.write("</try>");
   }
 
-  /** Emit a block statement's body, or a single non-block statement. */
+  /** Emit a block statement's body, or a single non-block statement.
+   * Uses #child for expression-like nodes since control-flow bodies are
+   * child context in Marko (no `-- ` prefix). */
   #block(node: AST.Statement): void {
     if (node.type === "BlockStatement") {
-      this.#stmts((node as AST.BlockStatement).body);
+      this.#blockStmts((node as AST.BlockStatement).body);
     } else {
-      this.#stmt(node as AST.Node);
+      this.#child(node as AST.Node);
     }
+  }
+
+  #blockStmts(nodes: AST.Node[]): void {
+    for (const n of nodes) this.#child(n);
   }
 
   // ── JSX (inside <tsx> blocks) ──────────────────────────────────────────────
