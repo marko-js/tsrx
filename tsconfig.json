@@ -12,7 +12,10 @@
     "verbatimModuleSyntax": true,
     "types": ["node"],
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@marko/tsrx": ["./packages/tsrx/src/index.ts"]
+    }
   },
   "exclude": ["node_modules", "examples"]
 }
