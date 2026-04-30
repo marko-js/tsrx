@@ -190,7 +190,7 @@ export class Transformer {
     for (const { name, comp, node } of namedComps) {
       const paramStr = this.#defineParamStr(comp.params);
       this.#w.write(paramStr ? `<define/${name}|${paramStr}|>` : `<define/${name}>`);
-      this.#compileComponent(comp, /* skipInputParam */ true);
+      this.#compileComponent(comp, /* skipInputParam */ true, /* childContext */ true);
       this.#w.write("</define>\n");
     }
 
@@ -200,11 +200,21 @@ export class Transformer {
 
   // ── Component ──────────────────────────────────────────────────────────────
 
-  #compileComponent(comp: Component, skipInputParam = false): void {
+  #compileComponent(
+    comp: Component,
+    skipInputParam = false,
+    childContext = false,
+  ): void {
     // Pre-pass: collect defineNames before any emit so the field is stable.
     this.#defineNames = this.#collectDefineNames(comp.body);
     if (!skipInputParam) this.#emitInputParam(comp.params);
-    this.#stmts(comp.body);
+    // <define> bodies are child content in Marko, so use #children (no `-- `).
+    // The root component is statement context, so use #stmts.
+    if (childContext) {
+      this.#children(comp.body);
+    } else {
+      this.#stmts(comp.body);
+    }
   }
 
   /**

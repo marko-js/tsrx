@@ -3,5 +3,5 @@ component Foo() {
 }
 
 component Bar() {
-  <span>{'bar'}</span>
+  {'bar'}
 }

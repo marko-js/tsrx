@@ -183,7 +183,6 @@
 === multi-no-export ===
   src: 2 "span" -> "span"
   src: 2 "'fo" -> "foo"
-  src: 6 "span" -> "span"
   src: 6 "'ba" -> "bar"
 
 === plain-destructure ===
