@@ -294,7 +294,27 @@ export class Transformer {
   // Both dispatch the same node types; only the expression wrapper differs.
 
   #stmts(nodes: AST.Node[]): void {
-    for (const n of nodes) this.#stmt(n);
+    for (const n of nodes) {
+      this.#stmt(n);
+      if (!this.#w.atLineStart) this.#w.nl();
+    }
+  }
+
+  /**
+   * Emit a safe string literal in statement context.
+   * Single-line: `-- text\n`
+   * Multi-line:  `---\ntext\n---\n`  (Marko fence syntax)
+   */
+  #stmtText(text: string, srcStart: number, srcEnd: number): void {
+    if (text.includes("\n")) {
+      this.#w.write("---\n");
+      this.#w.writeLiteralSegments(text, srcStart, srcEnd);
+      this.#w.write("\n---\n");
+    } else {
+      this.#w.write("-- ");
+      this.#w.writeLiteralSegments(text, srcStart, srcEnd);
+      this.#w.write("\n");
+    }
   }
 
   #stmt(node: AST.Node): void {
@@ -318,14 +338,29 @@ export class Transformer {
         if (n.expression.type === "Literal") {
           const safe = this.#safeLiteralText((n.expression as AST.Literal).value);
           if (safe !== null) {
-            this.#w.write("-- ");
-            this.#w.writeNode(safe, (n.expression as Sliceable).start ?? 0);
+            this.#stmtText(safe, ...this.#literalContentRange(n.expression as Sliceable));
             return;
           }
         }
         this.#w.write("-- ${");
         this.#w.writeSrc(n.expression as Sliceable);
-        this.#w.write("}");
+        this.#w.write("}\n");
+        return;
+      }
+
+      case "Text": {
+        const n = node as AST.BaseNode & { expression: AST.Expression };
+        const expr = n.expression;
+        if (expr.type === "Literal") {
+          const safe = this.#safeLiteralText((expr as AST.Literal).value);
+          if (safe !== null) {
+            this.#stmtText(safe, ...this.#literalContentRange(expr as Sliceable));
+            return;
+          }
+        }
+        this.#w.write("-- ${");
+        this.#w.writeSrc(expr as Sliceable);
+        this.#w.write("}\n");
         return;
       }
 
@@ -333,7 +368,7 @@ export class Transformer {
         const n = node as AST.Html;
         this.#w.write("-- $!{");
         this.#w.writeSrc(n.expression as Sliceable);
-        this.#w.write("}");
+        this.#w.write("}\n");
         return;
       }
 
@@ -414,7 +449,7 @@ export class Transformer {
         if (expr.type === "Literal") {
           const safe = this.#safeLiteralText((expr as AST.Literal).value);
           if (safe !== null) {
-            this.#w.writeNode(safe, (expr as Sliceable).start ?? 0);
+            this.#w.writeLiteralSegments(safe, ...this.#literalContentRange(expr as Sliceable));
             return;
           }
         }
@@ -447,7 +482,7 @@ export class Transformer {
         if (n.expression.type === "Literal") {
           const safe = this.#safeLiteralText((n.expression as AST.Literal).value);
           if (safe !== null) {
-            this.#w.writeNode(safe, (n.expression as Sliceable).start ?? 0);
+            this.#w.writeLiteralSegments(safe, ...this.#literalContentRange(n.expression as Sliceable));
             return;
           }
         }
@@ -461,11 +496,20 @@ export class Transformer {
         this.#element(node as unknown as TsrxElement);
         return;
 
-      case "ExpressionStatement":
+      case "ExpressionStatement": {
+        const ex = (node as AST.ExpressionStatement).expression;
+        if (ex.type === "Literal") {
+          const safe = this.#safeLiteralText((ex as AST.Literal).value);
+          if (safe !== null) {
+            this.#w.writeLiteralSegments(safe, ...this.#literalContentRange(ex as Sliceable));
+            return;
+          }
+        }
         this.#w.write("${");
-        this.#w.writeSrc((node as AST.ExpressionStatement).expression as Sliceable);
+        this.#w.writeSrc(ex as Sliceable);
         this.#w.write("}");
         return;
+      }
 
       default:
         this.#stmt(node);
@@ -768,7 +812,7 @@ export class Transformer {
         if (expr.type === "Literal") {
           const safe = this.#safeLiteralText((expr as AST.Literal).value);
           if (safe !== null) {
-            this.#w.writeNode(safe, (expr as Sliceable).start ?? 0);
+            this.#w.writeLiteralSegments(safe, ...this.#literalContentRange(expr as Sliceable));
             return;
           }
         }
@@ -828,6 +872,12 @@ export class Transformer {
       else if (depth === 0 && (c === "<" || c === ">")) return true;
     }
     return false;
+  }
+
+  /** Returns [srcStart, srcEnd] for the content of a quoted string literal node,
+   *  i.e. the source offsets of the characters between the surrounding quotes. */
+  #literalContentRange(node: Sliceable): [number, number] {
+    return [(node.start ?? 0) + 1, (node.end ?? 0) - 1];
   }
 
   #safeLiteralText(value: unknown): string | null {

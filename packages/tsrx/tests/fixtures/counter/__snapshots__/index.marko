@@ -4,10 +4,12 @@ export type Input = {
 };
 
 <const/{ label, initial = 0 }=input/>
-<let/count=initial/><div class="counter"><span class="label">${label}</span>
+<let/count=initial/>
+<div class="counter"><span class="label">${label}</span>
 <button onClick=(() => { count--; })>−</button>
 <span class="value">${count}</span>
-<button onClick=(() => { count++; })>+</button></div><style>
+<button onClick=(() => { count++; })>+</button></div>
+<style>
     .counter { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0; }
     .counter .label { min-width: 6rem; font-weight: bold; }
     .counter .value { min-width: 2rem; text-align: center; font-size: 1.25rem; }

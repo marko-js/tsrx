@@ -13,6 +13,7 @@ export type MappingEntry = {
   sourceOffset: number;
   generatedOffset: number;
   length: number;
+  generatedLength: number;
 };
 
 // ─── Writer ───────────────────────────────────────────────────────────────────
@@ -63,16 +64,31 @@ export class Writer {
     return this;
   }
 
-  writeNode(text: string, sourceOffset: number): this {
+  writeNode(text: string, sourceOffset: number, sourceLength?: number): this {
     if (!text) return this;
     const [srcLine, srcCol] = this.#srcLineCol(sourceOffset);
     this.#lines[this.#genLine]!.push([this.#genCol, 0, srcLine, srcCol]);
     this.#mappingEntries.push({
       sourceOffset,
       generatedOffset: this.#genOffset,
-      length: text.length,
+      length: sourceLength ?? text.length,
+      generatedLength: text.length,
     });
     return this.write(text);
+  }
+
+  /**
+   * Emit the *value* of a quoted string literal (quotes already stripped)
+   * as a single mapping.  The source length covers the raw source bytes
+   * between the quotes (escape sequences count as multiple source bytes),
+   * while the generated length is the resolved value length.
+   *
+   * @param value   The already-resolved string value (JS string).
+   * @param srcStart  Offset in the source file of the first char after the opening quote.
+   * @param srcEnd    Offset in the source file of the closing quote.
+   */
+  writeLiteralSegments(value: string, srcStart: number, srcEnd: number): this {
+    return this.writeNode(value, srcStart, srcEnd - srcStart);
   }
 
   writeSrc(node: { start?: number; end?: number }): this {
@@ -82,6 +98,11 @@ export class Writer {
 
   nl(): this {
     return this.write("\n");
+  }
+
+  /** True when the last character written was a newline (or nothing has been written). */
+  get atLineStart(): boolean {
+    return this.#genCol === 0;
   }
 
   toString(): string {

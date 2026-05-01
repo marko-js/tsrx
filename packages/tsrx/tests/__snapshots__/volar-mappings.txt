@@ -2,25 +2,25 @@
   src: 1 "{ name: string }" -> "{ name: string }"
   src: 1 "{ name }" -> "{ name }"
   src: 2 "p" -> "p"
-  src: 2 "'Hello," -> "Hello, "
+  src: 2 "Hello, " -> "Hello, "
   src: 2 "name" -> "name"
-  src: 2 "'" -> "!"
+  src: 2 "!" -> "!"
   src: 3 "span" -> "span"
-  src: 3 "'before" -> "before "
+  src: 3 "before " -> "before "
   src: 3 "'<em>mid</em>'" -> "'<em>mid</em>'"
-  src: 3 "' afte" -> " after"
+  src: 3 " after" -> " after"
   src: 4 "p" -> "p"
   src: 4 "b" -> "b"
-  src: 4 "'Bol" -> "Bold"
-  src: 4 "'," -> ", "
+  src: 4 "Bold" -> "Bold"
+  src: 4 ", " -> ", "
   src: 4 "name" -> "name"
-  src: 4 "'" -> "!"
+  src: 4 "!" -> "!"
   src: 5 "div" -> "div"
   src: 6 "span" -> "span"
-  src: 6 "'" -> "a"
-  src: 7 "'betwee" -> "between"
+  src: 6 "a" -> "a"
+  src: 7 "between" -> "between"
   src: 8 "span" -> "span"
-  src: 8 "'" -> "b"
+  src: 8 "b" -> "b"
 
 === attr-dynamic-parens ===
   src: 2 "a" -> "a"
@@ -95,7 +95,7 @@
   src: 4 "() => {\n    count++;\n  }}>" -> "(() => {\n    count++;\n  })"
   src: 6 "count" -> "count"
   src: 8 "count > 5) " -> "(count > 5)"
-  src: 9 "\"Large valu" -> "Large value"
+  src: 9 "Large value" -> "Large value"
 
 === counter ===
   src: 1 "{\n  label: string;\n  initial?: number;\n}" -> "{\n  label: string;\n  initial?: number;\n}"
@@ -109,13 +109,13 @@
   src: 8 "label" -> "label"
   src: 9 "button" -> "button"
   src: 9 "() => { count--; }}>" -> "(() => { count--; })"
-  src: 9 "\"" -> "−"
+  src: 9 "−" -> "−"
   src:10 "span" -> "span"
   src:10 "\"value\"" -> "\"value\""
   src:10 "count" -> "count"
   src:11 "button" -> "button"
   src:11 "() => { count++; }}>" -> "(() => { count++; })"
-  src:11 "\"" -> "+"
+  src:11 "+" -> "+"
 
 === define-with-input ===
   src: 2 "span" -> "span"
@@ -128,17 +128,17 @@
   src: 1 "{ items }" -> "{ items }"
   src: 2 "div" -> "div"
   src: 2 "items.length" -> "items.length"
-  src: 2 "'" -> "x"
+  src: 2 "x" -> "x"
 
 === inline-fn-attr ===
   src: 1 "{ onClick: () => void }" -> "{ onClick: () => void }"
   src: 1 "{ onClick }" -> "{ onClick }"
   src: 2 "button" -> "button"
   src: 2 "onClick" -> "onClick"
-  src: 2 "'clic" -> "click"
+  src: 2 "click" -> "click"
   src: 3 "button" -> "button"
   src: 3 "() => { onClick(); }}>" -> "(() => { onClick(); })"
-  src: 3 "'wra" -> "wrap"
+  src: 3 "wrap" -> "wrap"
   src: 4 "input" -> "input"
   src: 4 "function (e: InputEvent) { console.log(e" -> "function (e: InputEvent) { console.log(e"
 
@@ -183,14 +183,14 @@
 
 === multi-exported ===
   src: 2 "span" -> "span"
-  src: 2 "'fo" -> "foo"
+  src: 2 "foo" -> "foo"
   src: 6 "span" -> "span"
-  src: 6 "'ba" -> "bar"
+  src: 6 "bar" -> "bar"
 
 === multi-no-export ===
   src: 2 "span" -> "span"
-  src: 2 "'fo" -> "foo"
-  src: 6 "'ba" -> "bar"
+  src: 2 "foo" -> "foo"
+  src: 6 "bar" -> "bar"
 
 === plain-destructure ===
   src: 1 "{ foo: { a: number; b: number }; arr: st" -> "{ foo: { a: number; b: number }; arr: st"
@@ -221,7 +221,7 @@
 
 === single-export-wins ===
   src: 2 "span" -> "span"
-  src: 2 "'helper tex" -> "helper text"
+  src: 2 "helper text" -> "helper text"
   src: 5 "{ title: string }" -> "{ title: string }"
   src: 5 "{ title }" -> "{ title }"
   src: 6 "div" -> "div"
@@ -239,11 +239,18 @@
   src: 2 "div" -> "div"
   src: 2 "\"wrapper\"" -> "\"wrapper\""
   src: 2 "\"x\"" -> "\"x\""
-  src: 2 "'h" -> "hi"
+  src: 2 "hi" -> "hi"
+
+=== string-child ===
+  src: 2 "div" -> "div"
+  src: 3 "Hello world" -> "Hello world"
+  src: 4 "Hello\\nworld" -> "Hello\\nworld"
+  src: 5 "Hello world" -> "Hello world"
+  src: 6 "Hello\n    world" -> "Hello\n    world"
 
 === stub-success ===
   src: 2 "div" -> "div"
-  src: 2 "\"h" -> "hi"
+  src: 2 "hi" -> "hi"
 
 === style-tag ===
 
@@ -251,16 +258,29 @@
   src: 2 "div" -> "div"
   src: 2 "input.content" -> "input.content"
 
+=== top-level-string ===
+  src: 2 "Hello world" -> "Hello world"
+  src: 3 "Hello\\nworld" -> "Hello\\nworld"
+  src: 4 "trigger" -> "trigger"
+  src: 4 "1" -> "1"
+  src: 5 "Hello world" -> "Hello world"
+  src: 6 "Hello\n  world" -> "Hello\n  world"
+  src: 8 "div" -> "div"
+  src: 9 "Hello world" -> "Hello world"
+  src:10 "Hello\\nworld" -> "Hello\\nworld"
+  src:11 "Hello world" -> "Hello world"
+  src:12 "Hello\n    world" -> "Hello\n    world"
+
 === top-level-text ===
   src: 1 "{ count: number }" -> "{ count: number }"
   src: 1 "{ count }" -> "{ count }"
-  src: 2 "'Hell" -> "Hello"
+  src: 2 "Hello" -> "Hello"
   src: 3 "count" -> "count"
   src: 4 "'<em>raw</em>'" -> "'<em>raw</em>'"
 
 === tsx-define-dynamic ===
   src: 2 "\"x\"" -> "\"x\""
-  src: 2 "\"H" -> "Hi"
+  src: 2 "Hi" -> "Hi"
   src: 4 "title" -> "title"
 
 === typed-identifier-param ===

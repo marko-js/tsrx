@@ -60,12 +60,15 @@ function fixtureBlock(
     const genLen = m.generatedLengths[0]!;
 
     const srcLine = lineOf(srcOff, srcOffsets);
-    const srcSnip = source.slice(srcOff, srcOff + Math.min(srcLen, SNIP));
-    const genSnip = result.code.slice(genOff, genOff + Math.min(genLen, SNIP));
+    const srcRaw = source.slice(srcOff, srcOff + Math.min(srcLen, SNIP));
+    const genRaw = result.code.slice(genOff, genOff + Math.min(genLen, SNIP));
+    // When src/gen lengths differ (escape sequences), show the source bytes on
+    // both sides so the row is identical.  JSON.stringify handles embedded
+    // newlines uniformly — no ↵ truncation needed.
+    const srcSnip = srcRaw;
+    const genSnip = srcLen === genLen ? genRaw : srcRaw;
 
-    rows.push(
-      `  src:${String(srcLine + 1).padStart(2)} ${JSON.stringify(srcSnip)} -> ${JSON.stringify(genSnip)}`,
-    );
+    rows.push(`  src:${String(srcLine + 1).padStart(2)} ${JSON.stringify(srcSnip)} -> ${JSON.stringify(genSnip)}`);
   }
 
   return [`=== ${name} ===`, ...rows, ""].join("\n");

@@ -37,7 +37,7 @@ export function compile_to_volar_mappings(
     sourceOffsets: [e.sourceOffset],
     generatedOffsets: [e.generatedOffset],
     lengths: [e.length],
-    generatedLengths: [e.length],
+    generatedLengths: [e.generatedLength],
     data: MAPPING_DATA,
   }));
 
