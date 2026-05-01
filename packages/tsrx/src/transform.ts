@@ -632,7 +632,7 @@ export class Transformer {
     }
     this.#w.writeNode(this.#attrValue(node.right as unknown as AST.Expression), (node.right as Sliceable).start ?? 0);
 
-    if (bind && !idx && keyExpr) {
+    if (bind && keyExpr) {
       this.#w.write(` by=(${bind}) => `);
       this.#w.writeSrc(keyExpr as Sliceable);
     }

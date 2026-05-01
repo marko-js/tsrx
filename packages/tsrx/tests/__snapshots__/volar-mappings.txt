@@ -46,6 +46,13 @@
   src: 4 "items" -> "items"
   src: 5 "li" -> "li"
 
+=== control-for-index-key ===
+  src: 2 "items" -> "items"
+  src: 2 "[{ id: \"1\" }]" -> "[{ id: \"1\" }]"
+  src: 4 "items" -> "items"
+  src: 4 "item.id" -> "item.id"
+  src: 5 "li" -> "li"
+
 === control-for-key ===
   src: 2 "rows" -> "rows"
   src: 2 "[{ id: \"1\" }]" -> "[{ id: \"1\" }]"
