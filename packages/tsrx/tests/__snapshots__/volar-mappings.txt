@@ -204,6 +204,9 @@
   src: 2 "box" -> "box"
   src: 4 "input" -> "input"
 
+=== script-tag ===
+  src: 2 "\n    const x = 1;\n    console.log(x);\n  " -> "\n    const x = 1;\n    console.log(x);\n  "
+
 === self-closing ===
   src: 2 "br" -> "br"
   src: 3 "input" -> "input"

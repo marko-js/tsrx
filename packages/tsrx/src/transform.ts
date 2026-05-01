@@ -9,6 +9,7 @@ import type {
   JSXText,
 } from "estree-jsx";
 
+
 export type CompileResult = {
   ast: ParseResult["ast"];
   code: string;
@@ -479,6 +480,14 @@ export class Transformer {
 
     if (tagRaw === "style") {
       this.#w.write(`<style>${typeof el.css === "string" ? el.css : ""}</style>`);
+      return;
+    }
+
+    if (tagRaw === "script") {
+      const scriptChild = el.children[0] as (Sliceable & { type: string }) | undefined;
+      this.#w.write("<script>");
+      if (scriptChild) this.#w.writeSrc(scriptChild);
+      this.#w.write("</script>");
       return;
     }
 
