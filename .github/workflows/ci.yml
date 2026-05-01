@@ -23,7 +23,7 @@ jobs:
           node-version: lts/*
           cache: npm
       - name: Install packages
-        run: npm ci
+        run: npm install
       - name: Run build
         run: npm run build
       - name: Install Playwright browsers
@@ -47,7 +47,7 @@ jobs:
           node-version: lts/*
           cache: npm
       - name: Install packages
-        run: npm ci
+        run: npm install
       - name: Run release
         uses: changesets/action@v1
         with:
