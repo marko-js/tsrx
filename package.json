@@ -5,10 +5,7 @@
   "license": "MIT",
   "author": "LuLaValva",
   "type": "module",
-  "workspaces": [
-    "./packages/*",
-    "./examples/*"
-  ],
+  "packageManager": "pnpm@10.30.3",
   "scripts": {
     "build": "npm run typecheck && tsc -b tsconfig.build.json",
     "typecheck": "tsc --noEmit",
@@ -18,7 +15,7 @@
     "change": "changeset",
     "version": "changeset version",
     "publish": "npm run build && changeset publish",
-    "@ci:version": "changeset version && npm i --package-lock-only",
+    "@ci:version": "changeset version && pnpm install --lockfile-only",
     "@ci:release": "npm run build && changeset publish"
   },
   "devDependencies": {

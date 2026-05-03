@@ -38,7 +38,7 @@
   },
   "peerDependencies": {
     "@marko/compiler": ">=5.0.0",
-    "@marko/tsrx": "^0.0.3",
+    "@marko/tsrx": "workspace:^",
     "vite": ">=5.0.0"
   },
   "peerDependenciesMeta": {

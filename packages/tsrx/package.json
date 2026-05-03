@@ -39,6 +39,10 @@
     "@jridgewell/sourcemap-codec": "^1.5.5",
     "@tsrx/core": "^0.0.22"
   },
+  "devDependencies": {
+    "@types/estree": "^1.0.8",
+    "@types/estree-jsx": "^1.0.5"
+  },
   "publishConfig": {
     "access": "public"
   }
