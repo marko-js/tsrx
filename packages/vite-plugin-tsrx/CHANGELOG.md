@@ -1,5 +1,12 @@
 # @marko/vite-plugin-tsrx
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [629e33c]
+  - @marko/tsrx@0.0.4
+
 ## 0.0.3
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@marko/vite-plugin-tsrx",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Vite plugin for @marko/tsrx (.tsrx modules) targeting Marko 6",
   "keywords": [
     "marko",
