@@ -1,5 +1,11 @@
 # @marko/tsrx
 
+## 0.0.4
+
+### Patch Changes
+
+- 629e33c: Fix issues with `<for>`, `<script>`, and isolated string literals
+
 ## 0.0.3
 
 ### Patch Changes
